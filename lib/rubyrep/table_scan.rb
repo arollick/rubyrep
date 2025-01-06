@@ -29,9 +29,14 @@ module RR
     def update_progress(steps)
       return unless progress_printer
       unless @progress_printer_instance
+        left_filter = right_filter = ''
+        left_filter = right_filter = ' where ' + scan_options[:scan_filter] if scan_options[:scan_filter]
+        left_filter = ' where ' + scan_options[:left_scan_filter] if scan_options[:left_scan_filter]
+        right_filter = ' where ' + scan_options[:right_scan_filter] if scan_options[:right_scan_filter]
+
         total_records =
-          session.left.select_one("select count(*) as n from #{session.left.quote_table_name(left_table)}")['n'].to_i +
-          session.right.select_one("select count(*) as n from #{session.right.quote_table_name(right_table)}")['n'].to_i
+          session.left.select_one("select count(*) as n from #{session.left.quote_table_name(left_table)}" + left_filter)['n'].to_i +
+          session.right.select_one("select count(*) as n from #{session.right.quote_table_name(right_table)}" + right_filter)['n'].to_i
         @progress_printer_instance = progress_printer.new(total_records, session, left_table, right_table)
       end
       @progress_printer_instance.step(steps)

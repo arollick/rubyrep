@@ -337,7 +337,7 @@ module RR
     def table_select_query(table, options = {})
       query = "select #{quote_column_list(table)}"
       query << " from #{quote_table_name(table)}"
-      query << " where" if [:from, :to, :row_keys].any? {|key| options.include? key}
+      query << " where" if [:from, :to, :row_keys, :filter].any? {|key| options.include? key}
       first_condition = true
       if options[:from]
         first_condition = false
@@ -365,6 +365,11 @@ module RR
           end
           query << ')'
         end
+      end
+      if options[:filter]
+        query << ' and' unless first_condition
+        first_condition = false
+        query << ' ' << options[:filter]
       end
       query << " order by #{quote_key_list(table)}"
 

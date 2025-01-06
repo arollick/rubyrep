@@ -32,16 +32,27 @@ module RR
     #          A row is a hash of column_name => value pairs.
     def run(&blck)
       left_cursor = right_cursor = nil
-      left_cursor = session.left.select_cursor(
+
+      left_options = {
         :table => left_table,
         :row_buffer_size => scan_options[:row_buffer_size],
         :type_cast => true
-      )
-      right_cursor = session.right.select_cursor(
+      }
+      right_options = {
         :table => right_table,
         :row_buffer_size => scan_options[:row_buffer_size],
         :type_cast => true
-      )
+      }
+      table_options = session.configuration.options_for_table(left_table)
+
+      left_options[:filter] = right_options[:filter] = table_options[:scan_filter] if table_options[:scan_filter]
+
+      left_options[:filter] = table_options[:left_scan_filter] if table_options[:left_scan_filter]
+      right_options[:filter] = table_options[:right_scan_filter] if table_options[:right_scan_filter]
+
+      left_cursor = session.left.select_cursor(left_options)
+      right_cursor = session.right.select_cursor(right_options)
+
       left_row = right_row = nil
       update_progress 0 # ensures progress bar is printed even if there are no records
       while left_row or right_row or left_cursor.next? or right_cursor.next?
