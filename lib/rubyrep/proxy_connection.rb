@@ -297,9 +297,9 @@ module RR
     end
   
     # Returns a list of quoted column names for the given +table+ as comma 
-    # separated string.
-    def quote_column_list(table)
-      column_names(table).map do |column_name| 
+    # separated string. Excludes columns from +exclude_columns+ array
+    def quote_column_list(table, exclude_columns = [])
+      column_names(table).reject { |col| exclude_columns.include? col }.map do |column_name|
         quote_column_name(column_name)
       end.join(', ')
     end
@@ -334,8 +334,11 @@ module RR
     #   * :+exclude_starting_row+: if true, do not include the row specified by :+from+
     #   * :+to+: nil OR the hash of primary key => value pairs designating the end of the selection
     #   * :+row_keys+: an array of primary key => value hashes specify the target rows.
+    #   * :+filter+: WHERE clause condition for select.
+    #   * :+exclude_columns+: an array of names of excluded columns.
     def table_select_query(table, options = {})
-      query = "select #{quote_column_list(table)}"
+      exclude_columns = options[:exclude_columns] ? options[:exclude_columns] : []
+      query = "select #{quote_column_list(table, exclude_columns)}"
       query << " from #{quote_table_name(table)}"
       query << " where" if [:from, :to, :row_keys, :filter].any? {|key| options.include? key}
       first_condition = true

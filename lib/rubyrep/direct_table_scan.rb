@@ -45,6 +45,11 @@ module RR
       }
       table_options = session.configuration.options_for_table(left_table)
 
+      left_options[:exclude_columns] = right_options[:exclude_columns] = table_options[:exclude_columns].split(",").map { |col| col.strip } if table_options[:exclude_columns]
+      left_options[:exclude_columns] = table_options[:left_exclude_columns].split(",").map { |col| col.strip } if table_options[:left_exclude_columns]
+      right_options[:exclude_columns] = table_options[:right_exclude_columns].split(",").map { |col| col.strip } if table_options[:right_exclude_columns]
+
+
       left_options[:filter] = right_options[:filter] = table_options[:scan_filter] if table_options[:scan_filter]
 
       left_options[:filter] = table_options[:left_scan_filter] if table_options[:left_scan_filter]
