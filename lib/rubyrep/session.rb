@@ -102,16 +102,17 @@ module RR
 
     # Orders the array of table pairs as per primary key / foreign key relations
     # of the tables. Returns the result.
-    # Only sorts if the configuration has set option :+table_ordering+.
+    # Only sorts if the configuration has set option :+table_ordering+ to :+left+ or :+right+.
     # Refer to TableSpecResolver#resolve for a detailed description of the
     # parameter and return value.
     def sort_table_pairs(table_pairs)
-      if configuration.options[:table_ordering]
-        left_tables = table_pairs.map {|table_pair| table_pair[:left]}
-        sorted_left_tables = TableSorter.new(self, left_tables).sort
-        sorted_left_tables.map do |left_table|
+      ordering = configuration.options[:table_ordering]
+      if ordering == :left || ordering == :right
+        sort_tables = table_pairs.map {|table_pair| table_pair[ordering]}
+        sorted_tables = TableSorter.new(self, sort_tables).sort
+        sorted_tables.map do |table|
           table_pairs.find do |table_pair|
-            table_pair[:left] == left_table
+            table_pair[ordering] == table
           end
         end
       else

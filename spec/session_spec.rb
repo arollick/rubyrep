@@ -246,7 +246,7 @@ describe Session do   # here database connection caching is _not_ disabled
         'scanner_text_key',
       ])
     config = deep_copy(standard_config)
-    config.options[:table_ordering] = false
+    config.options[:table_ordering] = :none
     session = Session.new config
     session.sort_table_pairs(table_pairs).should == table_pairs
   end

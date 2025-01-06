@@ -36,7 +36,7 @@ module RR
       :replicator => :two_way,
       :committer => :buffered_commit,
       :commit_frequency => 1000,
-      :table_ordering => true,
+      :table_ordering => :left,
       :scan_progress_printer => :progress_bar,
       :use_ansi => true_if_running_in_a_terminal_and_not_under_windows,
       :initial_sync => true,
