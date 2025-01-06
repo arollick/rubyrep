@@ -3,6 +3,18 @@ $LOAD_PATH.unshift File.dirname(__FILE__) + "/rubyrep"
 
 require 'rubygems'
 require 'yaml'
+require 'bigdecimal'
+
+# # MONKEY PATCHING
+module BigDecimalPatch
+  def new(*args)
+    warn "`BigDecimal.new` is deprecated. Use `BigDecimal()` instead."
+    BigDecimal(*args)
+  end
+end
+
+# Додаємо перевизначення методу в BigDecimal
+BigDecimal.singleton_class.prepend(BigDecimalPatch)
 
 gem 'activerecord', '>= 4.2', '< 5'
 require 'active_record'

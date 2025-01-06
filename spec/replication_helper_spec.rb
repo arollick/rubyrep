@@ -9,7 +9,7 @@ describe ReplicationHelper do
     Initializer.configuration = standard_config
   end
 
-  it "initialize should initialize the correct committer" do
+  it 'initialize should initialize the correct committer' do
     session = Session.new
     rep_run = ReplicationRun.new(session, TaskSweeper.new(1))
     helper = ReplicationHelper.new(rep_run)
@@ -18,17 +18,17 @@ describe ReplicationHelper do
     c.session.should == helper.session
   end
 
-  it "session should return the session" do
+  it 'session should return the session' do
     rep_run = ReplicationRun.new(Session.new, TaskSweeper.new(1))
     helper = ReplicationHelper.new(rep_run)
     helper.session.should == rep_run.session
   end
 
-  it "type_cast should convert unconverted values correctly" do
+  it 'type_cast should convert unconverted values correctly' do
     session = Session.new
 
-    decimal_data = BigDecimal("99999.00001")
-    multi_byte_data = "よろしくお願(ねが)いします yoroshiku onegai shimasu: I humbly ask for your favor."
+    decimal_data = BigDecimal('99999.00001')
+    multi_byte_data = 'よろしくお願(ねが)いします yoroshiku onegai shimasu: I humbly ask for your favor.'
     binary_data = Marshal.dump(['bla',:dummy,1,2,3])
     timestamp = Time.now.utc
 
@@ -62,7 +62,7 @@ describe ReplicationHelper do
     end
   end
 
-  it "new_transaction? should delegate to the committer" do
+  it 'new_transaction? should delegate to the committer' do
     session = Session.new
     rep_run = ReplicationRun.new(session, TaskSweeper.new(1))
     helper = ReplicationHelper.new(rep_run)
@@ -71,20 +71,20 @@ describe ReplicationHelper do
     helper.new_transaction?.should be true
   end
 
-  it "replication_run should return the current ReplicationRun instance" do
+  it 'replication_run should return the current ReplicationRun instance' do
     rep_run = ReplicationRun.new(Session.new, TaskSweeper.new(1))
     helper = ReplicationHelper.new(rep_run)
     helper.replication_run.should == rep_run
   end
 
-  it "options should return the correct options" do
+  it 'options should return the correct options' do
     session = Session.new
     rep_run = ReplicationRun.new(session, TaskSweeper.new(1))
     helper = ReplicationHelper.new(rep_run)
     helper.options.should == session.configuration.options
   end
 
-  it "insert_record should insert the given record" do
+  it 'insert_record should insert the given record' do
     rep_run = ReplicationRun.new(Session.new, TaskSweeper.new(1))
     helper = ReplicationHelper.new(rep_run)
     c = helper.instance_eval {committer}
@@ -92,7 +92,7 @@ describe ReplicationHelper do
     helper.insert_record :right, 'scanner_records', :dummy_record
   end
 
-  it "update_record should update the given record" do
+  it 'update_record should update the given record' do
     rep_run = ReplicationRun.new(Session.new, TaskSweeper.new(1))
     helper = ReplicationHelper.new(rep_run)
     c = helper.instance_eval {committer}
@@ -100,7 +100,7 @@ describe ReplicationHelper do
     helper.update_record :right, 'scanner_records', :dummy_record
   end
 
-  it "update_record should update the given record with the provided old key" do
+  it 'update_record should update the given record with the provided old key' do
     rep_run = ReplicationRun.new(Session.new, TaskSweeper.new(1))
     helper = ReplicationHelper.new(rep_run)
     c = helper.instance_eval {committer}
@@ -108,7 +108,7 @@ describe ReplicationHelper do
     helper.update_record :right, 'scanner_records', :dummy_record, :old_key
   end
 
-  it "delete_record should delete the given record" do
+  it 'delete_record should delete the given record' do
     rep_run = ReplicationRun.new(Session.new, TaskSweeper.new(1))
     helper = ReplicationHelper.new(rep_run)
     c = helper.instance_eval {committer}
@@ -116,7 +116,7 @@ describe ReplicationHelper do
     helper.delete_record :right, 'scanner_records', :dummy_record
   end
 
-  it "load_record should load the specified record (values converted to original data types)" do
+  it 'load_record should load the specified record (values converted to original data types)' do
     rep_run = ReplicationRun.new(Session.new, TaskSweeper.new(1))
     helper = ReplicationHelper.new(rep_run)
     helper.load_record(:right, 'scanner_records', 'id' => '2').should == {
@@ -125,7 +125,7 @@ describe ReplicationHelper do
     }
   end
 
-  it "options_for_table should return the correct options for the table" do
+  it 'options_for_table should return the correct options for the table' do
     Initializer.configuration.options = {:a => 1, :b => 2}
     Initializer.configuration.add_table_options 'scanner_records', {:b => 3}
     rep_run = ReplicationRun.new(Session.new, TaskSweeper.new(1))
@@ -135,7 +135,7 @@ describe ReplicationHelper do
     options[:b].should == 3
   end
 
-  it "options_for_table should merge the configured options into the default two way replicator options" do
+  it 'options_for_table should merge the configured options into the default two way replicator options' do
     rep_run = ReplicationRun.new(Session.new, TaskSweeper.new(1))
     helper = ReplicationHelper.new(rep_run)
     helper.options_for_table('scanner_records').include?(:left_change_handling).should be true
@@ -143,7 +143,7 @@ describe ReplicationHelper do
     helper.options_for_table('scanner_records').include?(:replication_conflict_handling).should be true
   end
 
-  it "log_replication_outcome should log the replication outcome correctly" do
+  it 'log_replication_outcome should log the replication outcome correctly' do
     session = Session.new
     session.left.begin_db_transaction
     begin
@@ -169,7 +169,7 @@ describe ReplicationHelper do
 
       helper.log_replication_outcome diff, 'ignore', 'ignored'
 
-      row = session.left.select_record(query: "select * from rr_logged_events order by id desc", table: :rr_logged_events)
+      row = session.left.select_record(query: 'select * from rr_logged_events order by id desc', table: :rr_logged_events)
       row['activity'].should == 'replication'
       row['change_table'].should == 'extender_combined_key'
       row['diff_type'].should == 'conflict'
@@ -185,7 +185,7 @@ describe ReplicationHelper do
     end
   end
 
-  it "finalize should be delegated to the committer" do
+  it 'finalize should be delegated to the committer' do
     rep_run = ReplicationRun.new(Session.new, TaskSweeper.new(1))
     helper = ReplicationHelper.new(rep_run)
 
