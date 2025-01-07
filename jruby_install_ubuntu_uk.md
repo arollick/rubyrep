@@ -1,4 +1,4 @@
-[english](jruby_install_ubuntu_en)
+[english](jruby_install_ubuntu_en.md)
 # Установка JRuby та RubyRep на Ubuntu 22.04
 
 ## 1. Оновіть систему
