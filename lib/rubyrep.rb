@@ -8,7 +8,7 @@ require 'bigdecimal'
 # # MONKEY PATCHING
 module BigDecimalPatch
   def new(*args)
-    warn "`BigDecimal.new` is deprecated. Use `BigDecimal()` instead."
+    # warn "`BigDecimal.new` is deprecated. Use `BigDecimal()` instead."
     BigDecimal(*args)
   end
 end
