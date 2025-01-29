@@ -36,9 +36,16 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+---
+
 [Install JRuby and RubyRep on Ubuntu 22.04](jruby_install_ubuntu_en.md)
+
 [Installation Guide for RubyRep on Windows](jruby_install_windows_en.md)
 
+---
+
 [Установка JRuby та RubyRep на Ubuntu 22.04](jruby_install_ubuntu_uk.md)
+
 [Інструкція з налаштування RubyRep на Windows](jruby_install_windows_uk.md)
 
+---

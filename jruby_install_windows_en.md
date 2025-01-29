@@ -70,4 +70,3 @@
 3. If you see a message about a missing path, check the `PATH` settings and open a new command prompt window.
 
 ---
-Done! RubyRep should now be running.
