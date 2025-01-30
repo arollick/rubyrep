@@ -5,3 +5,8 @@ doc/*
 website/.*\.html$
 pkg/*
 tmp/*
+
+.qodo
+/.bundle/
+/jruby/
+/vendor/

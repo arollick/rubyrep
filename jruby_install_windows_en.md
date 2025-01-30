@@ -46,7 +46,22 @@
    mkdir syncs
    ```
 
-## 4. Editing the Startup File
+## 4. Install Bundler
+After installing JRuby, install Bundler, which is required for dependency management:
+
+```cmd
+jruby -S gem install bundler
+```
+
+## 5. Install Project Dependencies
+Navigate to your project folder and run:
+
+```cmd
+cd C:\home\rubyrep
+jruby -S bundle install
+```
+
+## 6. Editing the Startup File
 1. Open the `rubyrep.bat` file in a text editor.
 2. Find the line:
    ```bat
@@ -58,7 +73,7 @@
    ```
 4. Save the changes.
 
-## 5. Running RubyRep
+## 7. Running RubyRep
 1. Open `cmd.exe` and navigate to the `rubyrep` folder:
    ```sh
    cd C:\home\rubyrep
