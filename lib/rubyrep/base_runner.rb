@@ -166,7 +166,7 @@ EOS
       begin
         left_collate = session.left.select_one("SHOW LC_COLLATE")["lc_collate"]
         right_collate = session.right.select_one("SHOW LC_COLLATE")["lc_collate"]
-
+        $global_locale = left_collate ||  'uk_UA.UTF-8'
         if left_collate != right_collate
           $stderr.puts "Left database collation: #{left_collate}"
           $stderr.puts "Right database collation: #{right_collate}"
