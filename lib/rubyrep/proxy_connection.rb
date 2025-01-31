@@ -337,6 +337,8 @@ module RR
     #   * :+filter+: WHERE clause condition for select.
     #   * :+exclude_columns+: an array of names of excluded columns.
     def table_select_query(table, options = {})
+      schema, table_name = table.to_s.include?('.') ? table.to_s.split('.', 2) : [nil, table.to_s]
+
       exclude_columns = options[:exclude_columns] ? options[:exclude_columns] : []
       query = "select #{quote_column_list(table, exclude_columns)}"
       query << " from #{quote_table_name(table)}"

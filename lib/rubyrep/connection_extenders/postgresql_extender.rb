@@ -23,56 +23,74 @@ module RR
       # (E. g. 'public, rr' instead of only 'public,rr')
       def tables(name = nil)
         select_all(<<-SQL, name).map { |row| row['tablename'] }
-          SELECT tablename
+          SELECT schemaname||'.'||tablename as tablename
             FROM pg_tables
            WHERE schemaname IN (#{schemas})
         SQL
       end
 
       # Returns an ordered list of primary key column names of the given table
+
       def primary_key_names(table)
-        row = self.select_one(<<-end_sql)
-          SELECT relname
-          FROM pg_class
-          WHERE relname = '#{table}' and relnamespace IN
-            (SELECT oid FROM pg_namespace WHERE nspname in (#{schemas}))
-        end_sql
-        raise "table '#{table}' does not exist" if row.nil?
-        
-        row = self.select_one(<<-end_sql)
-          SELECT cons.conkey 
-          FROM pg_class           rel
-          JOIN pg_constraint      cons ON (rel.oid = cons.conrelid)
-          WHERE cons.contype = 'p' AND rel.relname = '#{table}' AND rel.relnamespace IN
-            (SELECT oid FROM pg_namespace WHERE nspname in (#{schemas}))
-        end_sql
+        # Розбиваємо "schema.table" на окремі значення
+        schema, table_name = table.include?('.') ? table.split('.', 2) : [nil, table]
+
+        # Check if the table exists.
+        row = self.select_one(<<-SQL)
+            SELECT relname
+            FROM pg_class rel
+            JOIN pg_namespace nsp ON rel.relnamespace = nsp.oid
+            WHERE rel.relname = '#{table_name}'
+            #{schema ? "AND nsp.nspname = '#{schema}'" : ""}
+          SQL
+
+        raise "Table '#{table}' does not exist" if row.nil?
+
+        # Retrieving a list of attributes (column numbers) that make up the primary key.
+        row = self.select_one(<<-SQL)
+            SELECT cons.conkey 
+            FROM pg_class rel
+            JOIN pg_namespace nsp ON rel.relnamespace = nsp.oid
+            JOIN pg_constraint cons ON rel.oid = cons.conrelid
+            WHERE cons.contype = 'p'
+            AND rel.relname = '#{table_name}'
+            #{schema ? "AND nsp.nspname = '#{schema}'" : ""}
+          SQL
+
         return [] if row.nil?
+
         column_parray = row['conkey']
-        
+
         # Change a Postgres Array of attribute numbers
         # (returned in String form, e. g.: "{1,2}") into an array of Integers
-        if column_parray.kind_of?(Array)
-          column_ids = column_parray # in JRuby the attribute numbers are already returned as array
-        else
-          column_ids = column_parray.sub(/^\{(.*)\}$/,'\1').split(',').map {|a| a.to_i}
+        column_ids = if column_parray.is_a?(Array)
+                       column_parray # in JRuby the attribute numbers are already returned as array
+                     else
+                       column_parray.sub(/^\{(.*)\}$/, '\1').split(',').map(&:to_i)
+                     end
+
+        # Retrieving column names by their numbers.
+        columns = {}
+        rows = self.select_all(<<-SQL)
+          SELECT attr.attnum, attr.attname
+          FROM pg_class rel
+          JOIN pg_namespace nsp ON rel.relnamespace = nsp.oid
+          JOIN pg_constraint cons ON rel.oid = cons.conrelid
+          JOIN pg_attribute attr ON rel.oid = attr.attrelid AND attr.attnum = ANY (cons.conkey)
+          WHERE cons.contype = 'p'
+          AND rel.relname = '#{table_name}'
+          #{schema ? "AND nsp.nspname = '#{schema}'" : ""}
+        SQL
+
+        sorted_columns = []
+        unless rows.nil?
+          rows.each { |r| columns[r['attnum'].to_i] = r['attname'] }
+          sorted_columns = column_ids.map { |column_id| columns[column_id] }
         end
 
-        columns = {}
-        rows = self.select_all(<<-end_sql)
-          SELECT attnum, attname
-          FROM pg_class           rel
-          JOIN pg_constraint      cons ON (rel.oid = cons.conrelid)
-          JOIN pg_attribute       attr ON (rel.oid = attr.attrelid and attr.attnum = any (cons.conkey))
-          WHERE cons.contype = 'p' AND rel.relname = '#{table}' AND rel.relnamespace IN
-            (SELECT oid FROM pg_namespace WHERE nspname in (#{schemas}))
-        end_sql
-        sorted_columns = []
-        if not rows.nil?
-          rows.each() {|r| columns[r['attnum'].to_i] = r['attname']}
-          sorted_columns = column_ids.map {|column_id| columns[column_id]}
-        end
         sorted_columns
       end
+
 
       # Returns for each given table, which other tables it references via
       # foreign key constraints.
@@ -81,27 +99,48 @@ module RR
       # * key: name of the referencing table
       # * value: an array of names of referenced tables
       def referenced_tables(tables)
-        rows = self.select_all(<<-end_sql)
-          select distinct referencing.relname as referencing_table, referenced.relname as referenced_table
-          from pg_class referencing
-          left join pg_constraint on referencing.oid = pg_constraint.conrelid
-          left join pg_class referenced on pg_constraint.confrelid = referenced.oid
-          where referencing.relkind='r'
-          and referencing.relname in ('#{tables.join("', '")}')
-          and referencing.relnamespace IN
-            (SELECT oid FROM pg_namespace WHERE nspname in (#{schemas}))
-        end_sql
-        result = {}
-        rows.each do |row|
-          unless result.include? row['referencing_table']
-            result[row['referencing_table']] = []
-          end
-          if row['referenced_table'] != nil
-            result[row['referencing_table']] << row['referenced_table']
-          end
+        # Splitting each “schema.table” record into separate components.
+        schema_table_pairs = tables.map do |table|
+          schema, table_name = table.include?('.') ? table.split('.', 2) : [nil, table]
+          { schema: schema, table: table_name }
         end
+
+        # Preparing a condition for table filtering.
+        table_conditions = schema_table_pairs.map do |pair|
+          if pair[:schema]
+            "(nsp.nspname = '#{pair[:schema]}' AND referencing.relname = '#{pair[:table]}')"
+          else
+            "referencing.relname = '#{pair[:table]}'"
+          end
+        end.join(" OR ")
+
+        rows = self.select_all(<<-SQL)
+          SELECT DISTINCT referencing.relname AS referencing_table, 
+                          referenced.relname AS referenced_table,
+                          nsp.nspname AS referencing_schema,
+                          ref_nsp.nspname AS referenced_schema
+          FROM pg_class referencing
+          LEFT JOIN pg_namespace nsp ON referencing.relnamespace = nsp.oid
+          LEFT JOIN pg_constraint ON referencing.oid = pg_constraint.conrelid
+          LEFT JOIN pg_class referenced ON pg_constraint.confrelid = referenced.oid
+          LEFT JOIN pg_namespace ref_nsp ON referenced.relnamespace = ref_nsp.oid
+          WHERE referencing.relkind = 'r'
+          AND (#{table_conditions})
+        SQL
+
+        result = {}
+
+        rows.each do |row|
+          referencing_full_name = "#{row['referencing_schema']}.#{row['referencing_table']}"
+          referenced_full_name = row['referenced_schema'] ? "#{row['referenced_schema']}.#{row['referenced_table']}" : nil
+
+          result[referencing_full_name] ||= []
+          result[referencing_full_name] << referenced_full_name if referenced_full_name
+        end
+
         result
       end
+
 
       # Quotes the value so it can be used in SQL insert / update statements.
       #
