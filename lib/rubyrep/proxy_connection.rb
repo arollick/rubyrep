@@ -391,7 +391,26 @@ module RR
       end.join(', ') << ')'
       query
     end
-    
+    # Returns an SQL insert OR update query for the given +table+ and +values+.
+    # +values+ is a hash of column_name => value pairs.
+    def table_upsert_query(table, values)
+      columns = values.keys.map { |column_name| quote_column_name(column_name) }
+      values_list = values.map { |column_name, value| quote_value(table, column_name, value) }
+
+      update_set = values.keys.map do |column_name|
+        "#{quote_column_name(column_name)} = EXCLUDED.#{quote_column_name(column_name)}"
+      end
+
+      query = <<~SQL
+    INSERT INTO #{quote_table_name(table)} (#{columns.join(', ')})
+    VALUES (#{values_list.join(', ')})
+    ON CONFLICT (#{quote_key_list(table)})
+    DO UPDATE SET #{update_set.join(', ')}
+    SQL
+
+      query.strip
+    end
+
     # Inserts the specified records into the named +table+.
     # +values+ is a hash of column_name => value pairs.
     def insert_record(table, values)

@@ -161,8 +161,30 @@ EOS
       prepare_table_pairs(session.configured_table_pairs(options[:table_specs]))
     end
 
+    # Checks the collation of the left and right database
+    def check_database_collations
+      begin
+        left_collate = session.left.select_one("SHOW LC_COLLATE")["lc_collate"]
+        right_collate = session.right.select_one("SHOW LC_COLLATE")["lc_collate"]
+
+        $stderr.puts "Left database collation: #{left_collate}"
+        $stderr.puts "Right database collation: #{right_collate}"
+
+        if left_collate != right_collate
+          $stderr.puts "ERROR: Database collations do not match!"
+          exit 1
+        end
+
+        true
+      rescue => e
+        $stderr.puts "Error checking database collations: #{e.message}"
+        exit 1
+      end
+    end
+
     # Executes a run based on the established options.
     def execute
+      check_database_collations
       session.configuration.exclude_rubyrep_tables
       table_pairs.each do |table_pair|
         report_printer.scan table_pair[:left], table_pair[:right] do
