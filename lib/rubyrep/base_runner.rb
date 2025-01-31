@@ -167,10 +167,10 @@ EOS
         left_collate = session.left.select_one("SHOW LC_COLLATE")["lc_collate"]
         right_collate = session.right.select_one("SHOW LC_COLLATE")["lc_collate"]
 
-        $stderr.puts "Left database collation: #{left_collate}"
-        $stderr.puts "Right database collation: #{right_collate}"
-
         if left_collate != right_collate
+          $stderr.puts "Left database collation: #{left_collate}"
+          $stderr.puts "Right database collation: #{right_collate}"
+
           $stderr.puts "ERROR: Database collations do not match!"
           exit 1
         end
