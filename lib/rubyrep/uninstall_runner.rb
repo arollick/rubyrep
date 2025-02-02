@@ -1,11 +1,11 @@
 $LOAD_PATH.unshift File.dirname(__FILE__) + '/../lib'
 
 require 'optparse'
+require 'rubyrep/abstract_runner'
 
 module RR
   # This class implements the functionality of the 'uninstall' command.
-  class UninstallRunner
-
+  class UninstallRunner < AbstractRunner
     CommandRunner.register 'uninstall' => {
       :command => self,
       :description => 'Removes all rubyrep tables, triggers, etc. from "left" and "right" database'
@@ -55,16 +55,6 @@ EOS
       end
 
       return status
-    end
-
-    # Returns the active +Session+.
-    # Loads config file and creates session if necessary.
-    def session
-      unless @session
-        load options[:config_file]
-        @session = Session.new Initializer.configuration
-      end
-      @session
     end
 
     # Removes all rubyrep created database objects.

@@ -25,6 +25,47 @@ module RR
       end
     end
 
+    # Returns the trigger name for the given table
+    # * table: name of the table (can include schema name)
+    def trigger_name(table)
+      # Extract schema and table name
+      schema, table_name = if table.include?('.')
+        table.split('.')
+      else
+        ['public', table]
+      end
+      
+      # Don't include schema in trigger name if it's public
+      schema_prefix = schema == 'public' ? '' : "#{schema}_"
+      
+      "#{options(table)[:rep_prefix]}_#{schema_prefix}#{table_name}"
+    end
+
+    # Returns the full table name with schema
+    # * table: name of the table (can include schema name)
+    def full_table_name(table)
+      if table.include?('.')
+        table
+      else
+        "public.#{table}"
+      end
+    end
+
+    # Returns the name of the pending changes log table
+    def pending_changes_table_name
+      full_table_name("#{options[:rep_prefix]}_pending_changes")
+    end
+
+    # Returns the name of the logged events table
+    def logged_events_table_name
+      full_table_name("#{options[:rep_prefix]}_logged_events")
+    end
+
+    # Returns the name of the running flags table
+    def running_flags_table_name
+      full_table_name("#{options[:rep_prefix]}_running_flags")
+    end
+
     # Creates a trigger logging all table changes
     # * database: either :+left+ or :+right+
     # * table: name of the table
@@ -32,11 +73,11 @@ module RR
       options = self.options(table)
 
       params = {
-        :trigger_name => "#{options[:rep_prefix]}_#{table}",
+        :trigger_name => trigger_name(table),
         :table => table,
         :keys => session.send(database).primary_key_names(table),
-        :log_table => "#{options[:rep_prefix]}_pending_changes",
-        :activity_table => "#{options[:rep_prefix]}_running_flags",
+        :log_table => pending_changes_table_name,
+        :activity_table => running_flags_table_name,
         :key_sep => options[:key_sep],
         :exclude_rr_activity => false,
       }
@@ -48,16 +89,14 @@ module RR
     # * database: either :+left+ or :+right+
     # * table: name of the table
     def trigger_exists?(database, table)
-      trigger_name = "#{options(table)[:rep_prefix]}_#{table}"
-      session.send(database).replication_trigger_exists? trigger_name, table
+      session.send(database).replication_trigger_exists?(trigger_name(table), table)
     end
 
     # Drops the replication trigger of the named table.
     # * database: either :+left+ or :+right+
     # * table: name of the table
     def drop_trigger(database, table)
-      trigger_name = "#{options(table)[:rep_prefix]}_#{table}"
-      session.send(database).drop_replication_trigger trigger_name, table
+      session.send(database).drop_replication_trigger(trigger_name(table), table)
     end
 
     # Ensures that the sequences of the named table (normally the primary key
@@ -102,23 +141,23 @@ module RR
     # Returns +true+ if the change log exists in the specified database.
     # * database: either :+left+ or :+right+
     def change_log_exists?(database)
-      session.send(database).tables.include? "#{options[:rep_prefix]}_pending_changes"
+      session.send(database).tables.include? pending_changes_table_name
     end
 
     # Returns +true+ if the replication log exists.
     def event_log_exists?
-      session.left.tables.include? "#{options[:rep_prefix]}_logged_events"
+      session.left.tables.include? logged_events_table_name
     end
 
     # Drops the change log table in the specified database
     # * database: either :+left+ or :+right+
     def drop_change_log(database)
-      session.send(database).drop_table "#{options[:rep_prefix]}_pending_changes"
+      session.send(database).drop_table pending_changes_table_name
     end
 
     # Drops the replication log table.
     def drop_event_log
-      session.left.drop_table "#{options[:rep_prefix]}_logged_events"
+      session.left.drop_table logged_events_table_name
     end
 
     # Size of the replication log column diff_dump
@@ -149,8 +188,8 @@ module RR
     # Creates the replication log table.
     def create_event_log
       silence_ddl_notices(:left) do
-        table_name = "#{options[:rep_prefix]}_logged_events"
-        session.left.create_table "#{options[:rep_prefix]}_logged_events"
+        table_name = logged_events_table_name
+        session.left.create_table table_name
         session.left.add_column table_name, :activity, :string
         session.left.add_column table_name, :change_table, :string
         session.left.add_column table_name, :diff_type, :string
@@ -171,7 +210,7 @@ module RR
     def create_change_log(database)
       silence_ddl_notices(database) do
         connection = session.send(database)
-        table_name = "#{options[:rep_prefix]}_pending_changes"
+        table_name = pending_changes_table_name
         connection.create_table table_name
         connection.add_column table_name, :change_table, :string
         connection.add_column table_name, :change_key, :string
@@ -191,7 +230,7 @@ module RR
     # Checks in both databases, if the activity marker tables exist and if not,
     # creates them.
     def ensure_activity_markers
-      table_name = "#{options[:rep_prefix]}_running_flags"
+      table_name = running_flags_table_name
       [:left, :right].each do |database|
         connection = session.send(database)
         unless connection.tables.include? table_name
@@ -234,7 +273,7 @@ module RR
 
     # Checks in both databases, if the activity_marker tables exist. If yes, drops them.
     def drop_activity_markers
-      table_name = "#{options[:rep_prefix]}_running_flags"
+      table_name = running_flags_table_name
       [:left, :right].each do |database|
         if session.send(database).tables.include? table_name
           session.send(database).drop_table table_name
@@ -261,7 +300,7 @@ module RR
           if trigger_exists?(database, table)
             drop_trigger(database, table)
             session.send(database).execute(
-              "delete from #{options[:rep_prefix]}_pending_changes where change_table = '#{table}'")
+              "delete from #{pending_changes_table_name} where change_table = '#{table}'")
           end
           clear_sequence_setup(database, table)
         end

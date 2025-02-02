@@ -5,6 +5,17 @@ module RR
     module PostgreSQLReplication
       RR::ReplicationExtenders.register :postgresql => self
 
+      # Splits a "schema.table" name into schema and table.
+      def extract_schema_and_table(table_name)
+        if table_name.include?('.')
+          schema, table = table_name.split('.', 2)
+        else
+          schema = 'public'
+          table = table_name
+        end
+        [schema, table]
+      end
+
       # Returns the key clause that is used in the trigger function.
       # * +trigger_var+: should be either 'NEW' or 'OLD'
       # * +params+: the parameter hash as described in #create_rep_trigger
@@ -97,12 +108,13 @@ module RR
       # * :+key_sep+: column seperator to be used in the key column of the log table
       # * :+exclude_rr_activity+:
       #   if true, the trigger will check and filter out changes initiated by RubyRep
+
       def create_replication_trigger(params)
         create_or_replace_replication_trigger_function params
-
+        schema, table = extract_schema_and_table(params[:table])
         execute(<<-end_sql)
           CREATE TRIGGER "#{params[:trigger_name]}"
-          AFTER INSERT OR UPDATE OR DELETE ON "#{params[:table]}"
+          AFTER INSERT OR UPDATE OR DELETE ON "#{schema}"."#{table}"
               FOR EACH ROW EXECUTE PROCEDURE #{schema_prefix}"#{params[:trigger_name]}"();
         end_sql
       end
@@ -110,18 +122,20 @@ module RR
       # Removes a trigger and related trigger procedure.
       # * +trigger_name+: name of the trigger
       # * +table_name+: name of the table for which the trigger exists
-      def drop_replication_trigger(trigger_name, table_name)
-        execute "DROP TRIGGER \"#{trigger_name}\" ON \"#{table_name}\";"
-        execute "DROP FUNCTION \"#{trigger_name}\"();"
+      def drop_replication_trigger(trigger_name, table)
+        schema, table_name = extract_schema_and_table(table)
+        execute "DROP TRIGGER IF EXISTS \"#{trigger_name}\" ON \"#{schema}\".\"#{table_name}\";"
+        execute "DROP FUNCTION IF EXISTS \"#{trigger_name}\"();"
       end
 
       # Returns +true+ if the named trigger exists for the named table.
       # * +trigger_name+: name of the trigger
       # * +table_name+: name of the table
-      def replication_trigger_exists?(trigger_name, table_name)
+      def replication_trigger_exists?(trigger_name, table)
+        schema, table_name = extract_schema_and_table(table)
         !select_all(<<-end_sql).empty?
           select 1 from information_schema.triggers
-          where event_object_schema in (#{schemas})
+          where event_object_schema = '#{schema}'
           and trigger_name = '#{trigger_name}'
           and event_object_table = '#{table_name}'
         end_sql
@@ -136,7 +150,8 @@ module RR
       # * value: a hash with
       #   * :+increment+: current sequence increment
       #   * :+value+: current value
-      def sequence_values(rep_prefix, table_name)
+      def sequence_values(rep_prefix, table)
+        schema, table_name = extract_schema_and_table(table)
         result = {}
         sequence_names = select_all(<<-end_sql).map { |row| row['relname'] }
           select s.relname
@@ -144,8 +159,7 @@ module RR
           join pg_depend as r on t.oid = r.refobjid
           join pg_class as s on r.objid = s.oid
           and s.relkind = 'S'
-          and t.relname = '#{table_name}' AND t.relnamespace IN
-            (SELECT oid FROM pg_namespace WHERE nspname in (#{schemas}))
+          and t.relname = '#{table_name}' AND t.relnamespace = '#{schema}'
         end_sql
         sequence_names.each do |sequence_name|
           row = select_one("select last_value, increment_by from \"#{sequence_name}\"")
@@ -195,15 +209,15 @@ module RR
       # different value, then the restoration will not be correct.)
       # * +rep_prefix+: not used (necessary) for the Postgres
       # * +table_name+: name of the table
-      def clear_sequence_setup(rep_prefix, table_name)
+      def clear_sequence_setup(rep_prefix, table)
+        schema, table_name = extract_schema_and_table(table)
         sequence_names = select_all(<<-end_sql).map { |row| row['relname'] }
           select s.relname
           from pg_class as t
           join pg_depend as r on t.oid = r.refobjid
           join pg_class as s on r.objid = s.oid
           and s.relkind = 'S'
-          and t.relname = '#{table_name}' and t.relnamespace IN
-            (SELECT oid FROM pg_namespace WHERE nspname in (#{schemas}))
+          and t.relname = '#{table_name}' and t.relnamespace = '#{schema}'
         end_sql
         sequence_names.each do |sequence_name|
           execute(<<-end_sql)
@@ -216,15 +230,17 @@ module RR
       # specified table.
       # * table_name: name of the target table
       # * key_name: name of the primary key column
-      def add_big_primary_key(table_name, key_name)
+      def add_big_primary_key(table, key_name)
+        schema, table_name = extract_schema_and_table(table)
+
         old_message_level = select_one("show client_min_messages")['client_min_messages']
         execute "set client_min_messages = warning"
         execute(<<-end_sql)
-          alter table "#{table_name}" add column #{key_name} bigserial
+          alter table "#{schema}"."#{table_name}" add column #{key_name} bigserial
         end_sql
 
         execute(<<-end_sql)
-          alter table "#{table_name}" add constraint #{table_name}_#{key_name}_pkey primary key (#{key_name})
+          alter table "#{schema}"."#{table_name}" add constraint #{schema}_#{table_name}_#{key_name}_pkey primary key (#{key_name})
         end_sql
         
       ensure

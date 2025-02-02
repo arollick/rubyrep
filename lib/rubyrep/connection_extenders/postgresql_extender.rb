@@ -6,7 +6,18 @@ module RR
     # Provides various PostgreSQL specific functionality required by Rubyrep.
     module PostgreSQLExtender
       RR::ConnectionExtenders.register :postgresql => self
-      
+
+      # Splits a "schema.table" name into schema and table.
+      def extract_schema_and_table(table_name)
+        if table_name.include?('.')
+          schema, table = table_name.split('.', 2)
+        else
+          schema = 'public'
+          table = table_name
+        end
+        [schema, table]
+      end
+
       # Returns an array of schemas in the current search path.
       def schemas
         unless @schemas
@@ -29,19 +40,24 @@ module RR
         SQL
       end
 
+      def all_tables
+        select_all(<<-SQL).map { |row| row['tablename'] }
+          SELECT schemaname||'.'||tablename as tablename
+            FROM pg_tables
+        SQL
+      end
+
       # Returns an ordered list of primary key column names of the given table
 
       def primary_key_names(table)
-        # Розбиваємо "schema.table" на окремі значення
-        schema, table_name = table.include?('.') ? table.split('.', 2) : [nil, table]
-
+        schema, table_name = extract_schema_and_table(table)
         # Check if the table exists.
         row = self.select_one(<<-SQL)
             SELECT relname
             FROM pg_class rel
             JOIN pg_namespace nsp ON rel.relnamespace = nsp.oid
             WHERE rel.relname = '#{table_name}'
-            #{schema ? "AND nsp.nspname = '#{schema}'" : ""}
+            AND nsp.nspname = '#{schema}'
           SQL
 
         raise "Table '#{table}' does not exist" if row.nil?
@@ -54,7 +70,7 @@ module RR
             JOIN pg_constraint cons ON rel.oid = cons.conrelid
             WHERE cons.contype = 'p'
             AND rel.relname = '#{table_name}'
-            #{schema ? "AND nsp.nspname = '#{schema}'" : ""}
+            AND nsp.nspname = '#{schema}'
           SQL
 
         return [] if row.nil?
@@ -101,7 +117,7 @@ module RR
       def referenced_tables(tables)
         # Splitting each “schema.table” record into separate components.
         schema_table_pairs = tables.map do |table|
-          schema, table_name = table.include?('.') ? table.split('.', 2) : [nil, table]
+          schema, table_name = extract_schema_and_table(table)
           { schema: schema, table: table_name }
         end
 

@@ -18,7 +18,7 @@ module RR
     # A simple Hash to hold Session object
     # Purpose: preventing them from being garbage collected when they are only referenced through Drb
     attr_accessor :session_register
-    
+
     def initialize
       self.session_register = {}
     end

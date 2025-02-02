@@ -3,6 +3,7 @@ $LOAD_PATH.unshift File.dirname(__FILE__) + '/../lib'
 require 'optparse'
 require 'thread'
 require 'monitor'
+require 'rubyrep/abstract_runner'
 
 class Monitor
   alias lock mon_enter
@@ -11,8 +12,7 @@ end
 
 module RR
   # This class implements the functionality of the 'replicate' command.
-  class ReplicationRunner
-
+  class ReplicationRunner < AbstractRunner
     CommandRunner.register 'replicate' => {
       :command => self,
       :description => 'Starts a replication process'
@@ -65,19 +65,6 @@ EOS
       end
 
       return status
-    end
-
-    # Returns the active +Session+.
-    # Loads config file and creates session if necessary.
-    def session
-      unless @session
-        unless @config
-          load options[:config_file]
-          @config = Initializer.configuration
-        end
-        @session = Session.new @config
-      end
-      @session
     end
 
     # Removes current +Session+.

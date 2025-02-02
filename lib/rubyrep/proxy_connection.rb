@@ -133,7 +133,7 @@ module RR
       :create_or_replace_replication_trigger_function,
       :create_replication_trigger, :drop_replication_trigger, :replication_trigger_exists?,
       :sequence_values, :update_sequences, :clear_sequence_setup,
-      :drop_table, :add_big_primary_key, :add_column, :remove_column
+      :drop_table, :add_big_primary_key, :add_column, :remove_column, :all_tables
 
     # Caching the primary keys. This is a hash with
     #   * key: table name
@@ -156,7 +156,7 @@ module RR
     # * key: table_name
     # * value: array of primary key names
     attr_accessor :manual_primary_keys
-    
+
     # Returns an array of primary key names for the given +table_name+.
     # Caches the result for future calls. Allows manual overwrites through
     # the Configuration options +:primary_key_names+ or :+primary_key_only_limit+.
